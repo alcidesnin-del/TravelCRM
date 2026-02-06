@@ -529,6 +529,107 @@ const PassengerDetail = () => {
           </Card>
         </TabsContent>
 
+        <TabsContent value="whatsapp">
+          <Card className="p-8 bg-white rounded-xl border border-slate-100 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2
+                className="text-2xl font-bold text-slate-900"
+                style={{ fontFamily: 'Playfair Display, serif' }}
+              >
+                Chat de WhatsApp
+              </h2>
+              {passenger.phone ? (
+                <div className="flex items-center gap-2 text-sm text-slate-600">
+                  <MessageSquare className="w-4 h-4" />
+                  <span>{passenger.phone}</span>
+                </div>
+              ) : (
+                <p className="text-sm text-orange-600">El pasajero no tiene número de teléfono</p>
+              )}
+            </div>
+
+            {!passenger.phone ? (
+              <div className="text-center py-12">
+                <MessageSquare className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <p className="text-slate-600">El pasajero necesita un número de teléfono para usar WhatsApp</p>
+                <Button
+                  onClick={() => setShowEditDialog(true)}
+                  className="mt-4 bg-amber-600 hover:bg-amber-700 text-white rounded-full"
+                >
+                  Agregar Número
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="bg-slate-50 rounded-lg border border-slate-200 p-4 h-96 overflow-y-auto space-y-3">
+                  {whatsappMessages.length === 0 ? (
+                    <div className="text-center py-12">
+                      <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                      <p className="text-slate-500 text-sm">No hay mensajes aún</p>
+                      <p className="text-slate-400 text-xs mt-1">Envía el primer mensaje</p>
+                    </div>
+                  ) : (
+                    whatsappMessages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            msg.direction === 'outbound'
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-white border border-slate-200 text-slate-900'
+                          }`}
+                        >
+                          <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                          <p
+                            className={`text-xs mt-1 ${
+                              msg.direction === 'outbound' ? 'text-amber-100' : 'text-slate-500'
+                            }`}
+                          >
+                            {new Date(msg.created_at).toLocaleString('es-ES', {
+                              day: '2-digit',
+                              month: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <form onSubmit={handleSendWhatsApp} className="flex gap-2">
+                  <textarea
+                    value={whatsappMessage}
+                    onChange={(e) => setWhatsappMessage(e.target.value)}
+                    placeholder="Escribe tu mensaje aquí..."
+                    data-testid="whatsapp-message-input"
+                    className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-lg focus:border-slate-900 focus:ring-1 focus:ring-slate-900 resize-none"
+                    rows="3"
+                    disabled={sendingWhatsApp}
+                  />
+                  <Button
+                    type="submit"
+                    disabled={sendingWhatsApp || !whatsappMessage.trim()}
+                    data-testid="send-whatsapp-button"
+                    className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-6 h-auto"
+                  >
+                    <Send className="w-5 h-5" />
+                  </Button>
+                </form>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    <strong>Nota:</strong> Los mensajes se envían vía Twilio WhatsApp. El pasajero recibirá el mensaje en WhatsApp y sus respuestas aparecerán aquí automáticamente.
+                  </p>
+                </div>
+              </div>
+            )}
+          </Card>
+        </TabsContent>
+
         <TabsContent value="calls">
           <Card className="p-8 bg-white rounded-xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between mb-6">
