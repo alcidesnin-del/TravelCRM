@@ -29,7 +29,7 @@ const Login = () => {
         await register(email, password, name);
         toast.success("¡Cuenta creada exitosamente!");
       }
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (error) {
       toast.error(
         error.response?.data?.detail || "Error en la autenticación"
