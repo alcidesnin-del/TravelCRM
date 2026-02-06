@@ -25,6 +25,9 @@ const PassengerDetail = () => {
   const [showTripDialog, setShowTripDialog] = useState(false);
   const [driveConnected, setDriveConnected] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [whatsappMessages, setWhatsappMessages] = useState([]);
+  const [whatsappMessage, setWhatsappMessage] = useState("");
+  const [sendingWhatsApp, setSendingWhatsApp] = useState(false);
   const [formData, setFormData] = useState({});
   const [callData, setCallData] = useState({
     call_date: new Date().toISOString().split('T')[0],
