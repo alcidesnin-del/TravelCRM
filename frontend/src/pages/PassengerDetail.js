@@ -850,7 +850,7 @@ const PassengerDetail = () => {
                   <div
                     key={trip.id}
                     className="p-6 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-600 transition-colors cursor-pointer"
-                    onClick={() => navigate(`/calendar?trip=${trip.id}`)}
+                    onClick={() => navigate(`/app/calendar?trip=${trip.id}`)}
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div>
