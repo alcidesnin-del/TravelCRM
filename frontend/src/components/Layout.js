@@ -13,9 +13,9 @@ const Layout = () => {
   };
 
   const navItems = [
-    { path: "/dashboard", icon: Home, label: "Dashboard" },
-    { path: "/passengers", icon: Users, label: "Pasajeros" },
-    { path: "/calendar", icon: Calendar, label: "Calendario" },
+    { path: "/app/dashboard", icon: Home, label: "Dashboard" },
+    { path: "/app/passengers", icon: Users, label: "Pasajeros" },
+    { path: "/app/calendar", icon: Calendar, label: "Calendario" },
   ];
 
   return (
