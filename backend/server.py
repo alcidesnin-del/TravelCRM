@@ -704,6 +704,80 @@ async def check_whatsapp_status():
         "whatsapp_number": whatsapp_number if configured else None
     }
 
+# ===== DEMO ACCOUNT =====
+
+from demo_data import get_demo_data
+
+@api_router.post("/demo/reset")
+async def reset_demo_account():
+    """Create or reset demo account with sample data"""
+    try:
+        # Check if demo user exists
+        demo_user = await db.users.find_one({"email": "demo@travelcrm.com"})
+        
+        if demo_user:
+            user_id = demo_user["id"]
+            # Delete existing demo data
+            await db.passengers.delete_many({"user_id": user_id})
+            await db.trips.delete_many({"user_id": user_id})
+            await db.calls.delete_many({"user_id": user_id})
+            await db.whatsapp_messages.delete_many({"user_id": user_id})
+        else:
+            # Create demo user
+            user_id = str(uuid.uuid4())
+            hashed_pw = hash_password("demo123")
+            demo_user_data = {
+                "id": user_id,
+                "email": "demo@travelcrm.com",
+                "name": "Usuario Demo",
+                "password": hashed_pw,
+                "created_at": datetime.now(timezone.utc).isoformat()
+            }
+            await db.users.insert_one(demo_user_data)
+        
+        # Get demo data
+        demo_data = get_demo_data(user_id)
+        
+        # Insert demo data
+        if demo_data["passengers"]:
+            await db.passengers.insert_many(demo_data["passengers"])
+        if demo_data["trips"]:
+            await db.trips.insert_many(demo_data["trips"])
+        if demo_data["calls"]:
+            await db.calls.insert_many(demo_data["calls"])
+        if demo_data["whatsapp_messages"]:
+            await db.whatsapp_messages.insert_many(demo_data["whatsapp_messages"])
+        
+        # Generate demo token
+        token = create_access_token({"sub": user_id})
+        
+        return {
+            "message": "Demo account created successfully",
+            "credentials": {
+                "email": "demo@travelcrm.com",
+                "password": "demo123"
+            },
+            "token": token,
+            "stats": {
+                "passengers": len(demo_data["passengers"]),
+                "trips": len(demo_data["trips"]),
+                "calls": len(demo_data["calls"]),
+                "whatsapp_messages": len(demo_data["whatsapp_messages"])
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error creating demo account: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating demo account: {str(e)}")
+
+@api_router.get("/demo/credentials")
+async def get_demo_credentials():
+    """Get demo account credentials"""
+    return {
+        "email": "demo@travelcrm.com",
+        "password": "demo123",
+        "note": "Use these credentials to access the demo account"
+    }
+
 app.include_router(api_router)
 
 app.add_middleware(
