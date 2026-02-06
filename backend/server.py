@@ -610,14 +610,12 @@ class WhatsAppWebhook(BaseModel):
 
 # ===== WHATSAPP ENDPOINTS =====
 
-from twilio.rest import Client
-
 def get_twilio_client():
     account_sid = os.getenv("TWILIO_ACCOUNT_SID")
     auth_token = os.getenv("TWILIO_AUTH_TOKEN")
     if not account_sid or not auth_token:
         raise HTTPException(status_code=500, detail="Twilio credentials not configured")
-    return Client(account_sid, auth_token)
+    return TwilioClient(account_sid, auth_token)
 
 @api_router.post("/whatsapp/send")
 async def send_whatsapp_message(data: WhatsAppMessageCreate, user: User = Depends(get_current_user)):
