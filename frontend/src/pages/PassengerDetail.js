@@ -231,7 +231,7 @@ const PassengerDetail = () => {
       <div className="flex items-center justify-between mb-8">
         <div className="flex items-center gap-4">
           <Button
-            onClick={() => navigate("/passengers")}
+            onClick={() => navigate("/app/passengers")}
             className="bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 rounded-full"
             data-testid="back-button"
           >
