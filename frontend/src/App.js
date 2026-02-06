@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/sonner";
+import LandingPage from "@/pages/LandingPage";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Passengers from "@/pages/Passengers";
@@ -19,16 +20,17 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route
-            path="/"
+            path="/app"
             element={
               <PrivateRoute>
                 <Layout />
               </PrivateRoute>
             }
           >
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="passengers" element={<Passengers />} />
             <Route path="passengers/:id" element={<PassengerDetail />} />
