@@ -47,6 +47,7 @@ const PassengerDetail = () => {
   useEffect(() => {
     fetchPassengerData();
     checkDriveStatus();
+    fetchWhatsAppMessages();
   }, [id]);
 
   const fetchPassengerData = async () => {
