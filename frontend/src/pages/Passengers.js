@@ -257,7 +257,7 @@ const Passengers = () => {
               key={passenger.id}
               data-testid={`passenger-card-${passenger.id}`}
               className="p-6 bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
-              onClick={() => navigate(`/passengers/${passenger.id}`)}
+              onClick={() => navigate(`/app/passengers/${passenger.id}`)}
             >
               <div className="flex items-start gap-4">
                 <div className="bg-slate-900 rounded-full p-3">
