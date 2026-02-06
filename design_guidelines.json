@@ -1,0 +1,156 @@
+{
+  "identity": {
+    "name": "E1",
+    "role": "Creative Designer",
+    "mission": "Create a 'Serious and Professional that Surprises' CRM for Travel Agents.",
+    "tone": "Luxury Concierge, Precision, Trust, Editorial",
+    "metaphor": "The Captain's Log / High-End Concierge Desk"
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "Playfair Display, serif",
+      "weights": ["400", "600", "700"],
+      "usage": "Page titles, Section headers, Hero text",
+      "letterSpacing": "-0.02em"
+    },
+    "body": {
+      "fontFamily": "DM Sans, sans-serif",
+      "weights": ["400", "500", "700"],
+      "usage": "Data tables, Form inputs, General text",
+      "letterSpacing": "0.01em"
+    },
+    "mono": {
+      "fontFamily": "JetBrains Mono, monospace",
+      "usage": "Flight numbers, Booking references, IDs"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "name": "Midnight Navy",
+        "hex": "#0F172A",
+        "tailwind": "bg-slate-900",
+        "usage": "Sidebar, Header, Primary Text"
+      },
+      "secondary": {
+        "name": "Paper White",
+        "hex": "#F8FAFC",
+        "tailwind": "bg-slate-50",
+        "usage": "Main Background, Card Backgrounds"
+      },
+      "accent": {
+        "name": "Aviation Gold",
+        "hex": "#D97706",
+        "tailwind": "text-amber-600",
+        "usage": "CTAs, Highlights, Active States"
+      },
+      "success": {
+        "name": "Emerald",
+        "hex": "#059669",
+        "tailwind": "text-emerald-600",
+        "usage": "Confirmed Status, Positive Metrics"
+      },
+      "warning": {
+        "name": "Burnt Orange",
+        "hex": "#EA580C",
+        "tailwind": "text-orange-600",
+        "usage": "Pending Actions, Alerts"
+      }
+    },
+    "gradients": {
+      "luxury": "bg-gradient-to-br from-slate-900 to-slate-800",
+      "glass": "bg-white/70 backdrop-blur-xl border-white/20"
+    }
+  },
+  "layout": {
+    "gridSystem": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-12 gap-6",
+      "card": "p-6 rounded-xl border border-slate-200 shadow-sm"
+    },
+    "spacing": {
+      "containerPadding": "p-8 md:p-12",
+      "elementGap": "gap-6"
+    },
+    "sidebar": {
+      "width": "w-64",
+      "style": "fixed left-0 top-0 h-full bg-slate-900 text-white z-50"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-slate-900 text-white hover:bg-slate-800 rounded-full px-6 py-2 font-medium transition-all shadow-lg hover:shadow-xl",
+      "secondary": "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 rounded-full px-6 py-2 font-medium transition-all",
+      "ghost": "text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg px-4 py-2 transition-all"
+    },
+    "cards": {
+      "style": "bg-white rounded-xl border border-slate-100 shadow-[0_2px_10px_-2px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-5px_rgba(0,0,0,0.1)] transition-all duration-300",
+      "glass": "bg-white/80 backdrop-blur-md border border-white/50 shadow-sm"
+    },
+    "inputs": {
+      "style": "bg-slate-50 border-slate-200 focus:border-slate-900 focus:ring-1 focus:ring-slate-900 rounded-lg px-4 py-2 transition-all"
+    }
+  },
+  "visual_enhancers": {
+    "shadows": {
+      "soft": "shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]",
+      "sharp": "shadow-[4px_4px_0px_0px_rgba(15,23,42,1)]"
+    },
+    "borders": {
+      "subtle": "border border-slate-100",
+      "active": "border-l-4 border-amber-600"
+    },
+    "textures": {
+      "noise": "bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"
+    }
+  },
+  "motion": {
+    "transitions": "transition-all duration-300 ease-out",
+    "hover": "hover:-translate-y-1 hover:shadow-lg",
+    "entrance": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+  },
+  "image_urls": {
+    "destinations": [
+      "https://images.unsplash.com/photo-1770334655849-2c074d03d9c7?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1762975059532-d31fa9d79b88?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1764831525958-7c74633f63d3?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1763656259774-cbb145e9b4d3?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ],
+    "avatars": [
+      "https://images.unsplash.com/photo-1656313826909-1f89d1702a81?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1656313815939-6373a497bbf2?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1758518731468-98e90ffd7430?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "https://images.unsplash.com/photo-1730272768147-2b1442f8a965?crop=entropy&cs=srgb&fm=jpg&q=85"
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Implement a 'Bento Grid' layout for the main dashboard.",
+    "Use 'Playfair Display' for all section headings to give a premium editorial feel.",
+    "Ensure the 'Passenger List' is a high-density table but with generous padding inside cells (py-4).",
+    "The 'Passport/Documents' section must look like a secure vault or a clean gallery.",
+    "Use the 'Midnight Navy' sidebar to ground the application.",
+    "Add 'data-testid' to all interactive elements.",
+    "Use 'sonner' for all notifications.",
+    "Do not use gradients for backgrounds, use solid colors or subtle noise textures.",
+    "Ensure all forms use Shadcn components but styled with the 'inputs.style' defined above."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: transition: all. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add .App { text-align: center; } in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use sonner for toasts. Sonner component are located in /app/src/components/ui/sonner.tsx"
+  ]
+}
