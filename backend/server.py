@@ -778,6 +778,33 @@ async def get_demo_credentials():
         "note": "Use these credentials to access the demo account"
     }
 
+# ===== CONTACT FORM =====
+
+class ContactForm(BaseModel):
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    company: Optional[str] = None
+    message: Optional[str] = None
+
+@api_router.post("/contact")
+async def submit_contact_form(data: ContactForm):
+    """Handle contact form submissions"""
+    try:
+        contact_data = data.model_dump()
+        contact_data["id"] = str(uuid.uuid4())
+        contact_data["created_at"] = datetime.now(timezone.utc).isoformat()
+        contact_data["status"] = "new"
+        
+        await db.contacts.insert_one(contact_data)
+        
+        logger.info(f"New contact form submission from {data.email}")
+        
+        return {"message": "Contact form submitted successfully"}
+    except Exception as e:
+        logger.error(f"Error submitting contact form: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error submitting contact form")
+
 app.include_router(api_router)
 
 app.add_middleware(
