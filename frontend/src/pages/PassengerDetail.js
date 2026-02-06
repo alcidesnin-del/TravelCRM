@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Edit, Trash2, Phone, Upload, FileText, Plus, Image, Calendar, MapPin } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Phone, Upload, FileText, Plus, Image, Calendar, MapPin, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
