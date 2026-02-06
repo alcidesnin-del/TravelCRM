@@ -180,6 +180,36 @@ const PassengerDetail = () => {
     }
   };
 
+  const fetchWhatsAppMessages = async () => {
+    try {
+      const response = await axios.get(`${API}/whatsapp/messages/${id}`);
+      setWhatsappMessages(response.data);
+    } catch (error) {
+      console.error("Error loading WhatsApp messages:", error);
+    }
+  };
+
+  const handleSendWhatsApp = async (e) => {
+    e.preventDefault();
+    if (!whatsappMessage.trim()) return;
+
+    setSendingWhatsApp(true);
+    try {
+      await axios.post(`${API}/whatsapp/send`, {
+        passenger_id: id,
+        message: whatsappMessage,
+      });
+      setWhatsappMessage("");
+      toast.success("Mensaje enviado exitosamente");
+      fetchWhatsAppMessages();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || "Error al enviar mensaje");
+      console.error(error);
+    } finally {
+      setSendingWhatsApp(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
