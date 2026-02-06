@@ -379,6 +379,9 @@ const PassengerDetail = () => {
           <TabsTrigger value="documents" data-testid="tab-documents" className="rounded-md data-[state=active]:bg-slate-900 data-[state=active]:text-white">
             Documentos
           </TabsTrigger>
+          <TabsTrigger value="whatsapp" data-testid="tab-whatsapp" className="rounded-md data-[state=active]:bg-slate-900 data-[state=active]:text-white">
+            WhatsApp
+          </TabsTrigger>
           <TabsTrigger value="calls" data-testid="tab-calls" className="rounded-md data-[state=active]:bg-slate-900 data-[state=active]:text-white">
             Llamadas
           </TabsTrigger>
