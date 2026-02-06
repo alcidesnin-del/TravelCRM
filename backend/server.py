@@ -583,6 +583,138 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===== WHATSAPP MODELS =====
+
+class WhatsAppMessage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    passenger_id: str
+    direction: str
+    message: str
+    phone_number: str
+    status: str = "sent"
+    twilio_sid: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+
+class WhatsAppMessageCreate(BaseModel):
+    passenger_id: str
+    message: str
+
+class WhatsAppWebhook(BaseModel):
+    MessageSid: str
+    From: str
+    To: str
+    Body: str
+
+# ===== WHATSAPP ENDPOINTS =====
+
+from twilio.rest import Client
+
+def get_twilio_client():
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    if not account_sid or not auth_token:
+        raise HTTPException(status_code=500, detail="Twilio credentials not configured")
+    return Client(account_sid, auth_token)
+
+@api_router.post("/whatsapp/send")
+async def send_whatsapp_message(data: WhatsAppMessageCreate, user: User = Depends(get_current_user)):
+    try:
+        passenger = await db.passengers.find_one({"id": data.passenger_id, "user_id": user.id}, {"_id": 0})
+        if not passenger:
+            raise HTTPException(status_code=404, detail="Passenger not found")
+        
+        if not passenger.get("phone"):
+            raise HTTPException(status_code=400, detail="Passenger has no phone number")
+        
+        phone_number = passenger["phone"]
+        if not phone_number.startswith("+"):
+            phone_number = f"+{phone_number}"
+        
+        twilio_client = get_twilio_client()
+        twilio_whatsapp_number = os.getenv("TWILIO_WHATSAPP_NUMBER")
+        
+        message = twilio_client.messages.create(
+            from_=f"whatsapp:{twilio_whatsapp_number}",
+            to=f"whatsapp:{phone_number}",
+            body=data.message
+        )
+        
+        whatsapp_msg = WhatsAppMessage(
+            user_id=user.id,
+            passenger_id=data.passenger_id,
+            direction="outbound",
+            message=data.message,
+            phone_number=phone_number,
+            status="sent",
+            twilio_sid=message.sid
+        )
+        
+        await db.whatsapp_messages.insert_one(whatsapp_msg.model_dump())
+        
+        return whatsapp_msg
+    
+    except Exception as e:
+        logger.error(f"Error sending WhatsApp message: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+@api_router.get("/whatsapp/messages/{passenger_id}", response_model=List[WhatsAppMessage])
+async def get_whatsapp_messages(passenger_id: str, user: User = Depends(get_current_user)):
+    messages = await db.whatsapp_messages.find(
+        {"passenger_id": passenger_id, "user_id": user.id},
+        {"_id": 0}
+    ).sort("created_at", 1).to_list(1000)
+    return messages
+
+@api_router.post("/whatsapp/webhook")
+async def whatsapp_webhook(
+    MessageSid: str = Query(...),
+    From: str = Query(...),
+    To: str = Query(...),
+    Body: str = Query(...)
+):
+    try:
+        phone_number = From.replace("whatsapp:", "")
+        
+        passenger = await db.passengers.find_one({"phone": {"$regex": phone_number.replace("+", "")}})
+        
+        if passenger:
+            whatsapp_msg = WhatsAppMessage(
+                user_id=passenger["user_id"],
+                passenger_id=passenger["id"],
+                direction="inbound",
+                message=Body,
+                phone_number=phone_number,
+                status="received",
+                twilio_sid=MessageSid
+            )
+            
+            await db.whatsapp_messages.insert_one(whatsapp_msg.model_dump())
+            
+            logger.info(f"Received WhatsApp message from {phone_number}: {Body}")
+        else:
+            logger.warning(f"Received message from unknown number: {phone_number}")
+        
+        return {"status": "success"}
+    
+    except Exception as e:
+        logger.error(f"Webhook error: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@api_router.get("/whatsapp/status")
+async def check_whatsapp_status():
+    account_sid = os.getenv("TWILIO_ACCOUNT_SID")
+    auth_token = os.getenv("TWILIO_AUTH_TOKEN")
+    whatsapp_number = os.getenv("TWILIO_WHATSAPP_NUMBER")
+    
+    configured = bool(account_sid and auth_token and whatsapp_number)
+    
+    return {
+        "configured": configured,
+        "whatsapp_number": whatsapp_number if configured else None
+    }
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
