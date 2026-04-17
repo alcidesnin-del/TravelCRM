@@ -706,6 +706,301 @@ async def check_whatsapp_status():
 
 # ===== DEMO ACCOUNT =====
 
+# ===== NOTIFICATIONS =====
+
+@api_router.get("/notifications")
+async def get_notifications(user: User = Depends(get_current_user)):
+    notifications = []
+    now = datetime.now(timezone.utc)
+    today = now.date()
+
+    # Check passport expiry for all passengers
+    passengers = await db.passengers.find({"user_id": user.id}, {"_id": 0}).to_list(1000)
+    for p in passengers:
+        expiry_str = p.get("passport_expiry")
+        if not expiry_str:
+            continue
+        try:
+            expiry_date = datetime.strptime(expiry_str, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        days_left = (expiry_date - today).days
+        if days_left < 0:
+            notifications.append({
+                "id": f"passport-expired-{p['id']}",
+                "type": "passport_expired",
+                "severity": "critical",
+                "title": "Pasaporte vencido",
+                "message": f"El pasaporte de {p['full_name']} venció hace {abs(days_left)} días.",
+                "passenger_id": p["id"],
+                "passenger_name": p["full_name"],
+                "date": expiry_str,
+            })
+        elif days_left <= 30:
+            notifications.append({
+                "id": f"passport-30-{p['id']}",
+                "type": "passport_expiry",
+                "severity": "high",
+                "title": "Pasaporte por vencer (30 días)",
+                "message": f"El pasaporte de {p['full_name']} vence en {days_left} días ({expiry_str}).",
+                "passenger_id": p["id"],
+                "passenger_name": p["full_name"],
+                "date": expiry_str,
+            })
+        elif days_left <= 60:
+            notifications.append({
+                "id": f"passport-60-{p['id']}",
+                "type": "passport_expiry",
+                "severity": "medium",
+                "title": "Pasaporte por vencer (60 días)",
+                "message": f"El pasaporte de {p['full_name']} vence en {days_left} días ({expiry_str}).",
+                "passenger_id": p["id"],
+                "passenger_name": p["full_name"],
+                "date": expiry_str,
+            })
+        elif days_left <= 90:
+            notifications.append({
+                "id": f"passport-90-{p['id']}",
+                "type": "passport_expiry",
+                "severity": "low",
+                "title": "Pasaporte por vencer (90 días)",
+                "message": f"El pasaporte de {p['full_name']} vence en {days_left} días ({expiry_str}).",
+                "passenger_id": p["id"],
+                "passenger_name": p["full_name"],
+                "date": expiry_str,
+            })
+
+    # Check upcoming trips (within 7 days)
+    trips = await db.trips.find({"user_id": user.id, "status": "upcoming"}, {"_id": 0}).to_list(1000)
+    for t in trips:
+        start_str = t.get("start_date")
+        if not start_str:
+            continue
+        try:
+            start_date = datetime.strptime(start_str[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        days_until = (start_date - today).days
+        if 0 <= days_until <= 7:
+            # Find passenger name
+            passenger = await db.passengers.find_one({"id": t.get("passenger_id")}, {"_id": 0})
+            pax_name = passenger["full_name"] if passenger else "Desconocido"
+            notifications.append({
+                "id": f"trip-soon-{t['id']}",
+                "type": "trip_upcoming",
+                "severity": "info",
+                "title": "Viaje próximo",
+                "message": f"El viaje '{t['title']}' de {pax_name} a {t['destination']} inicia en {days_until} día(s).",
+                "passenger_id": t.get("passenger_id"),
+                "passenger_name": pax_name,
+                "date": start_str,
+            })
+
+    # Check trips ending soon (within 3 days)
+    ongoing_trips = await db.trips.find({"user_id": user.id, "status": "ongoing"}, {"_id": 0}).to_list(1000)
+    for t in ongoing_trips:
+        end_str = t.get("end_date")
+        if not end_str:
+            continue
+        try:
+            end_date = datetime.strptime(end_str[:10], "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            continue
+        days_until_end = (end_date - today).days
+        if 0 <= days_until_end <= 3:
+            passenger = await db.passengers.find_one({"id": t.get("passenger_id")}, {"_id": 0})
+            pax_name = passenger["full_name"] if passenger else "Desconocido"
+            notifications.append({
+                "id": f"trip-ending-{t['id']}",
+                "type": "trip_ending",
+                "severity": "info",
+                "title": "Viaje finalizando",
+                "message": f"El viaje '{t['title']}' de {pax_name} finaliza en {days_until_end} día(s).",
+                "passenger_id": t.get("passenger_id"),
+                "passenger_name": pax_name,
+                "date": end_str,
+            })
+
+    # Filter out dismissed notifications
+    dismissed = await db.dismissed_notifications.find({"user_id": user.id}, {"_id": 0}).to_list(1000)
+    dismissed_ids = {d["notification_id"] for d in dismissed}
+    notifications = [n for n in notifications if n["id"] not in dismissed_ids]
+
+    # Sort by severity
+    severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
+    notifications.sort(key=lambda n: severity_order.get(n["severity"], 5))
+
+    return {"notifications": notifications, "count": len(notifications)}
+
+
+@api_router.post("/notifications/dismiss/{notification_id}")
+async def dismiss_notification(notification_id: str, user: User = Depends(get_current_user)):
+    await db.dismissed_notifications.update_one(
+        {"user_id": user.id, "notification_id": notification_id},
+        {"$set": {
+            "user_id": user.id,
+            "notification_id": notification_id,
+            "dismissed_at": datetime.now(timezone.utc).isoformat()
+        }},
+        upsert=True
+    )
+    return {"message": "Notification dismissed"}
+
+
+@api_router.delete("/notifications/dismissed")
+async def clear_dismissed(user: User = Depends(get_current_user)):
+    await db.dismissed_notifications.delete_many({"user_id": user.id})
+    return {"message": "Dismissed notifications cleared"}
+
+
+# ===== OCR DOCUMENT SCANNING =====
+
+import base64
+import json as json_module
+from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+
+class OCRScanResponse(BaseModel):
+    full_name: Optional[str] = None
+    passport_number: Optional[str] = None
+    date_of_birth: Optional[str] = None
+    passport_expiry: Optional[str] = None
+    nationality: Optional[str] = None
+    gender: Optional[str] = None
+    document_type: Optional[str] = None
+
+@api_router.post("/ocr/scan")
+async def scan_document(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    try:
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máx 10MB)")
+
+        b64_image = base64.b64encode(content).decode('utf-8')
+
+        llm_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not llm_key:
+            raise HTTPException(status_code=500, detail="LLM key not configured")
+
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=f"ocr-{user.id}-{uuid.uuid4()}",
+            system_message="Eres un experto en OCR de documentos de identidad. Extraes información de pasaportes y carnets de identidad con precisión."
+        ).with_model("openai", "gpt-4o")
+
+        image_content = ImageContent(image_base64=b64_image)
+
+        user_message = UserMessage(
+            text="""Analiza esta imagen de pasaporte o documento de identidad. Extrae la siguiente información y devuelve ÚNICAMENTE un objeto JSON válido con estos campos:
+{
+  "full_name": "Nombre completo tal como aparece en el documento",
+  "passport_number": "Número del documento",
+  "date_of_birth": "Fecha de nacimiento en formato YYYY-MM-DD",
+  "passport_expiry": "Fecha de vencimiento en formato YYYY-MM-DD",
+  "nationality": "Nacionalidad",
+  "gender": "M o F",
+  "document_type": "passport o id_card"
+}
+
+Si un campo no es visible o no se puede leer, usa null.
+Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
+            file_contents=[image_content]
+        )
+
+        response = await chat.send_message(user_message)
+
+        # Parse JSON from response
+        response_text = response.strip()
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            response_text = "\n".join(lines[1:-1])
+
+        extracted_data = json_module.loads(response_text)
+
+        return {
+            "success": True,
+            "data": extracted_data,
+            "message": "Datos extraídos exitosamente"
+        }
+
+    except json_module.JSONDecodeError:
+        logger.error(f"Failed to parse OCR response: {response_text if 'response_text' in dir() else 'N/A'}")
+        return {
+            "success": False,
+            "data": {},
+            "message": "No se pudo extraer datos del documento. Intenta con una imagen más clara."
+        }
+    except Exception as e:
+        logger.error(f"OCR scan error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al escanear documento: {str(e)}")
+
+
+@api_router.post("/ocr/scan-and-create")
+async def scan_and_create_passenger(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Scan a document and create a new passenger with extracted data"""
+    try:
+        content = await file.read()
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máx 10MB)")
+
+        b64_image = base64.b64encode(content).decode('utf-8')
+
+        llm_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not llm_key:
+            raise HTTPException(status_code=500, detail="LLM key not configured")
+
+        chat = LlmChat(
+            api_key=llm_key,
+            session_id=f"ocr-create-{user.id}-{uuid.uuid4()}",
+            system_message="Eres un experto en OCR de documentos de identidad. Extraes información de pasaportes y carnets de identidad con precisión."
+        ).with_model("openai", "gpt-4o")
+
+        image_content = ImageContent(image_base64=b64_image)
+
+        user_message = UserMessage(
+            text="""Analiza esta imagen de pasaporte o documento de identidad. Extrae la siguiente información y devuelve ÚNICAMENTE un objeto JSON válido con estos campos:
+{
+  "full_name": "Nombre completo tal como aparece en el documento",
+  "passport_number": "Número del documento",
+  "date_of_birth": "Fecha de nacimiento en formato YYYY-MM-DD",
+  "passport_expiry": "Fecha de vencimiento en formato YYYY-MM-DD",
+  "nationality": "Nacionalidad",
+  "gender": "M o F",
+  "document_type": "passport o id_card"
+}
+
+Si un campo no es visible o no se puede leer, usa null.
+Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
+            file_contents=[image_content]
+        )
+
+        response = await chat.send_message(user_message)
+
+        response_text = response.strip()
+        if response_text.startswith("```"):
+            lines = response_text.split("\n")
+            response_text = "\n".join(lines[1:-1])
+
+        extracted_data = json_module.loads(response_text)
+
+        return {
+            "success": True,
+            "data": extracted_data,
+            "message": "Datos extraídos exitosamente. Revisa y confirma antes de guardar."
+        }
+
+    except json_module.JSONDecodeError:
+        return {
+            "success": False,
+            "data": {},
+            "message": "No se pudo extraer datos del documento. Intenta con una imagen más clara."
+        }
+    except Exception as e:
+        logger.error(f"OCR scan-and-create error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error al escanear documento: {str(e)}")
+
+
+# ===== DEMO ACCOUNT =====
+
 from demo_data import get_demo_data
 
 @api_router.post("/demo/reset")

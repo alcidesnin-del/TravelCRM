@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ArrowLeft, Edit, Trash2, Phone, Upload, FileText, Plus, Image, Calendar, MapPin, MessageSquare, Send } from "lucide-react";
 import { toast } from "sonner";
+import DocumentScanner from "@/components/DocumentScanner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -265,6 +266,19 @@ const PassengerDetail = () => {
                 </DialogTitle>
               </DialogHeader>
               <form onSubmit={handleUpdate} className="space-y-4 mt-4">
+                <DocumentScanner
+                  onDataExtracted={(data) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      full_name: data.full_name || prev.full_name,
+                      passport_number: data.passport_number || prev.passport_number,
+                      passport_expiry: data.passport_expiry || prev.passport_expiry,
+                      date_of_birth: data.date_of_birth || prev.date_of_birth,
+                      nationality: data.nationality || prev.nationality,
+                    }));
+                  }}
+                  className="mb-2"
+                />
                 <div className="grid grid-cols-2 gap-4">
                   <div className="col-span-2">
                     <Label htmlFor="full_name">Nombre Completo</Label>
@@ -475,6 +489,30 @@ const PassengerDetail = () => {
                   </>
                 )}
               </div>
+            </div>
+
+            <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3">Escanear documento con IA</h3>
+              <DocumentScanner
+                onDataExtracted={async (data) => {
+                  try {
+                    const updatePayload = {};
+                    if (data.full_name) updatePayload.full_name = data.full_name;
+                    if (data.passport_number) updatePayload.passport_number = data.passport_number;
+                    if (data.passport_expiry) updatePayload.passport_expiry = data.passport_expiry;
+                    if (data.date_of_birth) updatePayload.date_of_birth = data.date_of_birth;
+                    if (data.nationality) updatePayload.nationality = data.nationality;
+
+                    if (Object.keys(updatePayload).length > 0) {
+                      await axios.put(`${API}/passengers/${id}`, updatePayload);
+                      toast.success("Datos del pasajero actualizados desde el documento");
+                      fetchPassengerData();
+                    }
+                  } catch (err) {
+                    toast.error("Error al actualizar datos del pasajero");
+                  }
+                }}
+              />
             </div>
 
             {passenger.documents && passenger.documents.length > 0 ? (

@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Plus, Search, User, Phone, Mail } from "lucide-react";
 import { toast } from "sonner";
+import DocumentScanner from "@/components/DocumentScanner";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -118,6 +119,19 @@ const Passengers = () => {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+              <DocumentScanner
+                onDataExtracted={(data) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    full_name: data.full_name || prev.full_name,
+                    passport_number: data.passport_number || prev.passport_number,
+                    passport_expiry: data.passport_expiry || prev.passport_expiry,
+                    date_of_birth: data.date_of_birth || prev.date_of_birth,
+                    nationality: data.nationality || prev.nationality,
+                  }));
+                }}
+                className="mb-2"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <Label htmlFor="full_name">Nombre Completo *</Label>

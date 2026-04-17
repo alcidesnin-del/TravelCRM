@@ -2,6 +2,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { LogOut, Home, Users, Calendar, Plane } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/NotificationBell";
 
 const Layout = () => {
   const { user, logout } = useAuth();
@@ -33,6 +34,10 @@ const Layout = () => {
               <p className="text-xs text-slate-400">Gestión de Viajes</p>
             </div>
           </div>
+        </div>
+
+        <div className="px-4 pt-3 flex justify-end">
+          <NotificationBell />
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
