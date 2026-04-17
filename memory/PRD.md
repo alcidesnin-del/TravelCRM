@@ -96,3 +96,10 @@ Construir un CRM basico para agentes de viajes, con fichas completas de pasajero
 - Demo: POST /api/demo/reset, GET /api/demo/credentials
 - Contact: POST /api/contact
 - Stats: GET /api/stats
+- Notifications: GET /api/notifications, POST /api/notifications/dismiss/{id}, DELETE /api/notifications/dismissed
+- OCR: POST /api/ocr/scan, POST /api/ocr/scan-and-create
+
+## Integraciones
+- Twilio (WhatsApp Messaging) - Credenciales en .env
+- Google Drive API (File Uploads) - OAuth configurado
+- OpenAI GPT-4o (OCR de documentos) - via Emergent LLM Key
