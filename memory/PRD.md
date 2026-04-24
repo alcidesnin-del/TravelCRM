@@ -98,6 +98,7 @@ Construir un CRM basico para agentes de viajes, con fichas completas de pasajero
 - Stats: GET /api/stats
 - Notifications: GET /api/notifications, POST /api/notifications/dismiss/{id}, DELETE /api/notifications/dismissed
 - OCR: POST /api/ocr/scan, POST /api/ocr/scan-and-create
+- PDF Export: GET /api/passengers/{id}/pdf
 
 ## Integraciones
 - Twilio (WhatsApp Messaging) - Credenciales en .env
