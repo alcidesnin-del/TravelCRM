@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { ArrowLeft, Edit, Trash2, Phone, Upload, FileText, Plus, Image, Calendar, MapPin, MessageSquare, Send } from "lucide-react";
+import { ArrowLeft, Edit, Trash2, Phone, Upload, FileText, Plus, Image, Calendar, MapPin, MessageSquare, Send, Download } from "lucide-react";
 import { toast } from "sonner";
 import DocumentScanner from "@/components/DocumentScanner";
 
@@ -102,6 +102,27 @@ const PassengerDetail = () => {
         toast.error("Error al eliminar pasajero");
         console.error(error);
       }
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      toast.info("Generando PDF...");
+      const response = await axios.get(`${API}/passengers/${id}/pdf`, {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `ficha_${passenger?.full_name?.replace(/ /g, "_") || "pasajero"}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success("PDF descargado exitosamente");
+    } catch (error) {
+      toast.error("Error al generar PDF");
+      console.error(error);
     }
   };
 
@@ -249,6 +270,14 @@ const PassengerDetail = () => {
           </div>
         </div>
         <div className="flex gap-3">
+          <Button
+            onClick={handleExportPDF}
+            data-testid="export-pdf-button"
+            className="bg-slate-700 hover:bg-slate-600 text-white rounded-full"
+          >
+            <Download className="w-5 h-5 mr-2" />
+            Exportar PDF
+          </Button>
           <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
             <DialogTrigger asChild>
               <Button

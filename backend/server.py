@@ -704,8 +704,6 @@ async def check_whatsapp_status():
         "whatsapp_number": whatsapp_number if configured else None
     }
 
-# ===== DEMO ACCOUNT =====
-
 # ===== NOTIFICATIONS =====
 
 @api_router.get("/notifications")
@@ -997,6 +995,172 @@ Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
     except Exception as e:
         logger.error(f"OCR scan-and-create error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al escanear documento: {str(e)}")
+
+
+# ===== PDF EXPORT =====
+
+from fastapi.responses import StreamingResponse
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+from reportlab.lib.colors import HexColor
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+from reportlab.lib.enums import TA_CENTER
+
+
+@api_router.get("/passengers/{passenger_id}/pdf")
+async def export_passenger_pdf(passenger_id: str, user: User = Depends(get_current_user)):
+    passenger = await db.passengers.find_one({"id": passenger_id, "user_id": user.id}, {"_id": 0})
+    if not passenger:
+        raise HTTPException(status_code=404, detail="Passenger not found")
+
+    trips = await db.trips.find({"passenger_id": passenger_id, "user_id": user.id}, {"_id": 0}).sort("start_date", -1).to_list(1000)
+    calls = await db.calls.find({"passenger_id": passenger_id, "user_id": user.id}, {"_id": 0}).sort("call_date", -1).to_list(1000)
+    messages = await db.whatsapp_messages.find({"passenger_id": passenger_id, "user_id": user.id}, {"_id": 0}).sort("created_at", -1).to_list(100)
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm, leftMargin=20*mm, rightMargin=20*mm)
+
+    dark = HexColor("#0f172a")
+    amber = HexColor("#d97706")
+    slate600 = HexColor("#475569")
+    slate200 = HexColor("#e2e8f0")
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("TitleCustom", parent=styles["Title"], fontSize=22, textColor=dark, spaceAfter=2*mm, fontName="Helvetica-Bold")
+    section_style = ParagraphStyle("SectionCustom", parent=styles["Heading2"], fontSize=14, textColor=amber, spaceBefore=8*mm, spaceAfter=4*mm, fontName="Helvetica-Bold")
+    normal_style = ParagraphStyle("NormalCustom", parent=styles["Normal"], fontSize=10, textColor=dark, leading=14)
+    small_style = ParagraphStyle("SmallCustom", parent=styles["Normal"], fontSize=8, textColor=slate600, leading=11)
+
+    elements = []
+
+    # Header
+    elements.append(Paragraph("Ficha de Pasajero", title_style))
+    elements.append(Paragraph(passenger.get("full_name", "Sin nombre"), ParagraphStyle("NameStyle", parent=styles["Heading1"], fontSize=18, textColor=dark, spaceAfter=1*mm)))
+    elements.append(Paragraph(f"Generado: {datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M')} UTC", small_style))
+    elements.append(Spacer(1, 4*mm))
+    elements.append(HRFlowable(width="100%", thickness=1, color=slate200))
+
+    # Personal Info
+    elements.append(Paragraph("Informacion Personal", section_style))
+
+    info_data = []
+    fields = [
+        ("Email", passenger.get("email")),
+        ("Telefono", passenger.get("phone")),
+        ("Pasaporte", passenger.get("passport_number")),
+        ("Vencimiento", passenger.get("passport_expiry")),
+        ("Nacimiento", passenger.get("date_of_birth")),
+        ("Nacionalidad", passenger.get("nationality")),
+        ("Direccion", passenger.get("address")),
+    ]
+    for label, value in fields:
+        if value:
+            info_data.append([
+                Paragraph(f"<b>{label}</b>", small_style),
+                Paragraph(str(value), normal_style)
+            ])
+
+    if info_data:
+        info_table = Table(info_data, colWidths=[35*mm, 130*mm])
+        info_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LINEBELOW", (0, 0), (-1, -2), 0.5, slate200),
+        ]))
+        elements.append(info_table)
+
+    if passenger.get("notes"):
+        elements.append(Spacer(1, 3*mm))
+        elements.append(Paragraph("<b>Notas:</b>", small_style))
+        elements.append(Paragraph(passenger["notes"], normal_style))
+
+    # Trips
+    elements.append(Paragraph(f"Historial de Viajes ({len(trips)})", section_style))
+    if trips:
+        trip_header = [
+            Paragraph("<b>Viaje</b>", small_style),
+            Paragraph("<b>Destino</b>", small_style),
+            Paragraph("<b>Fechas</b>", small_style),
+            Paragraph("<b>Estado</b>", small_style),
+            Paragraph("<b>Costo</b>", small_style),
+        ]
+        trip_rows = [trip_header]
+        status_map = {"upcoming": "Proximo", "ongoing": "En curso", "completed": "Completado", "cancelled": "Cancelado"}
+        for t in trips:
+            trip_rows.append([
+                Paragraph(t.get("title", ""), normal_style),
+                Paragraph(t.get("destination", ""), normal_style),
+                Paragraph(f"{t.get('start_date', '')[:10]} a {t.get('end_date', '')[:10]}", small_style),
+                Paragraph(status_map.get(t.get("status", ""), t.get("status", "")), normal_style),
+                Paragraph(f"${t.get('total_cost', 0):,.2f}" if t.get("total_cost") else "-", normal_style),
+            ])
+        trip_table = Table(trip_rows, colWidths=[38*mm, 38*mm, 38*mm, 25*mm, 26*mm])
+        trip_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#f8fafc")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.5, slate200),
+            ("LINEBELOW", (0, 0), (-1, 0), 1, dark),
+        ]))
+        elements.append(trip_table)
+    else:
+        elements.append(Paragraph("No hay viajes registrados.", small_style))
+
+    # Calls
+    elements.append(Paragraph(f"Historial de Llamadas ({len(calls)})", section_style))
+    if calls:
+        call_header = [
+            Paragraph("<b>Fecha</b>", small_style),
+            Paragraph("<b>Duracion</b>", small_style),
+            Paragraph("<b>Notas</b>", small_style),
+        ]
+        call_rows = [call_header]
+        for c in calls:
+            call_rows.append([
+                Paragraph(c.get("call_date", "")[:10], normal_style),
+                Paragraph(f"{c.get('duration', '-')} min" if c.get("duration") else "-", normal_style),
+                Paragraph(c.get("notes", "") or "-", small_style),
+            ])
+        call_table = Table(call_rows, colWidths=[30*mm, 25*mm, 110*mm])
+        call_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), HexColor("#f8fafc")),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("TOPPADDING", (0, 0), (-1, -1), 3),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+            ("LINEBELOW", (0, 0), (-1, -1), 0.5, slate200),
+            ("LINEBELOW", (0, 0), (-1, 0), 1, dark),
+        ]))
+        elements.append(call_table)
+    else:
+        elements.append(Paragraph("No hay llamadas registradas.", small_style))
+
+    # WhatsApp
+    if messages:
+        elements.append(Paragraph(f"Ultimos Mensajes WhatsApp ({len(messages)})", section_style))
+        for m in messages[:20]:
+            direction = "Enviado" if m.get("direction") == "outbound" else "Recibido"
+            dt = m.get("created_at", "")[:16].replace("T", " ")
+            elements.append(Paragraph(f"<b>[{direction}] {dt}</b>", small_style))
+            elements.append(Paragraph(m.get("message", ""), normal_style))
+            elements.append(Spacer(1, 2*mm))
+
+    # Footer
+    elements.append(Spacer(1, 10*mm))
+    elements.append(HRFlowable(width="100%", thickness=1, color=slate200))
+    elements.append(Paragraph("TravelCRM - Gestion de Viajes", ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, textColor=slate600, alignment=TA_CENTER)))
+
+    doc.build(elements)
+    buffer.seek(0)
+
+    safe_name = passenger.get("full_name", "pasajero").replace(" ", "_")
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="ficha_{safe_name}.pdf"'}
+    )
 
 
 # ===== DEMO ACCOUNT =====
