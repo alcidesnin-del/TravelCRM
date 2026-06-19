@@ -76,7 +76,7 @@ const LandingPage = () => {
       axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
       
       toast.success("¡Bienvenido a la demo!");
-      navigate("/dashboard");
+      navigate("/app/dashboard");
     } catch (error) {
       toast.error("Error al cargar la demo. Inténtalo de nuevo.");
       console.error(error);
