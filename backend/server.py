@@ -28,7 +28,13 @@ mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-SECRET_KEY = os.environ.get('JWT_SECRET', 'your-secret-key-change-in-production')
+SECRET_KEY = os.environ.get('JWT_SECRET')
+if not SECRET_KEY or SECRET_KEY == 'your-secret-key-change-in-production':
+    raise RuntimeError(
+        "JWT_SECRET no está configurado o usa el valor por defecto inseguro. "
+        "Genera uno con: python -c \"import secrets; print(secrets.token_hex(32))\" "
+        "y agrégalo a tu archivo .env como JWT_SECRET=<valor>"
+    )
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_HOURS = 24
 
@@ -855,7 +861,55 @@ async def clear_dismissed(user: User = Depends(get_current_user)):
 
 import base64
 import json as json_module
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+from openai import AsyncOpenAI
+
+OCR_SYSTEM_PROMPT = "Eres un experto en OCR de documentos de identidad. Extraes información de pasaportes y carnets de identidad con precisión."
+
+OCR_USER_PROMPT = """Analiza esta imagen de pasaporte o documento de identidad. Extrae la siguiente información y devuelve ÚNICAMENTE un objeto JSON válido con estos campos:
+{
+  "full_name": "Nombre completo tal como aparece en el documento",
+  "passport_number": "Número del documento",
+  "date_of_birth": "Fecha de nacimiento en formato YYYY-MM-DD",
+  "passport_expiry": "Fecha de vencimiento en formato YYYY-MM-DD",
+  "nationality": "Nacionalidad",
+  "gender": "M o F",
+  "document_type": "passport o id_card"
+}
+
+Si un campo no es visible o no se puede leer, usa null.
+Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks."""
+
+
+async def run_ocr_on_image(b64_image: str) -> dict:
+    """Calls OpenAI's vision model directly (replaces the Emergent-only proxy)."""
+    openai_key = os.environ.get('OPENAI_API_KEY')
+    if not openai_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY no configurada")
+
+    client_ai = AsyncOpenAI(api_key=openai_key)
+
+    response = await client_ai.chat.completions.create(
+        model="gpt-4o",
+        messages=[
+            {"role": "system", "content": OCR_SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": OCR_USER_PROMPT},
+                    {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"}}
+                ]
+            }
+        ],
+        max_tokens=500,
+    )
+
+    response_text = response.choices[0].message.content.strip()
+    if response_text.startswith("```"):
+        lines = response_text.split("\n")
+        response_text = "\n".join(lines[1:-1])
+
+    return json_module.loads(response_text)
+
 
 class OCRScanResponse(BaseModel):
     full_name: Optional[str] = None
@@ -874,45 +928,7 @@ async def scan_document(file: UploadFile = File(...), user: User = Depends(get_c
             raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máx 10MB)")
 
         b64_image = base64.b64encode(content).decode('utf-8')
-
-        llm_key = os.environ.get('EMERGENT_LLM_KEY')
-        if not llm_key:
-            raise HTTPException(status_code=500, detail="LLM key not configured")
-
-        chat = LlmChat(
-            api_key=llm_key,
-            session_id=f"ocr-{user.id}-{uuid.uuid4()}",
-            system_message="Eres un experto en OCR de documentos de identidad. Extraes información de pasaportes y carnets de identidad con precisión."
-        ).with_model("openai", "gpt-4o")
-
-        image_content = ImageContent(image_base64=b64_image)
-
-        user_message = UserMessage(
-            text="""Analiza esta imagen de pasaporte o documento de identidad. Extrae la siguiente información y devuelve ÚNICAMENTE un objeto JSON válido con estos campos:
-{
-  "full_name": "Nombre completo tal como aparece en el documento",
-  "passport_number": "Número del documento",
-  "date_of_birth": "Fecha de nacimiento en formato YYYY-MM-DD",
-  "passport_expiry": "Fecha de vencimiento en formato YYYY-MM-DD",
-  "nationality": "Nacionalidad",
-  "gender": "M o F",
-  "document_type": "passport o id_card"
-}
-
-Si un campo no es visible o no se puede leer, usa null.
-Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
-            file_contents=[image_content]
-        )
-
-        response = await chat.send_message(user_message)
-
-        # Parse JSON from response
-        response_text = response.strip()
-        if response_text.startswith("```"):
-            lines = response_text.split("\n")
-            response_text = "\n".join(lines[1:-1])
-
-        extracted_data = json_module.loads(response_text)
+        extracted_data = await run_ocr_on_image(b64_image)
 
         return {
             "success": True,
@@ -921,12 +937,14 @@ Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
         }
 
     except json_module.JSONDecodeError:
-        logger.error(f"Failed to parse OCR response: {response_text if 'response_text' in dir() else 'N/A'}")
+        logger.error("Failed to parse OCR response")
         return {
             "success": False,
             "data": {},
             "message": "No se pudo extraer datos del documento. Intenta con una imagen más clara."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"OCR scan error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al escanear documento: {str(e)}")
@@ -941,44 +959,7 @@ async def scan_and_create_passenger(file: UploadFile = File(...), user: User = D
             raise HTTPException(status_code=400, detail="El archivo es demasiado grande (máx 10MB)")
 
         b64_image = base64.b64encode(content).decode('utf-8')
-
-        llm_key = os.environ.get('EMERGENT_LLM_KEY')
-        if not llm_key:
-            raise HTTPException(status_code=500, detail="LLM key not configured")
-
-        chat = LlmChat(
-            api_key=llm_key,
-            session_id=f"ocr-create-{user.id}-{uuid.uuid4()}",
-            system_message="Eres un experto en OCR de documentos de identidad. Extraes información de pasaportes y carnets de identidad con precisión."
-        ).with_model("openai", "gpt-4o")
-
-        image_content = ImageContent(image_base64=b64_image)
-
-        user_message = UserMessage(
-            text="""Analiza esta imagen de pasaporte o documento de identidad. Extrae la siguiente información y devuelve ÚNICAMENTE un objeto JSON válido con estos campos:
-{
-  "full_name": "Nombre completo tal como aparece en el documento",
-  "passport_number": "Número del documento",
-  "date_of_birth": "Fecha de nacimiento en formato YYYY-MM-DD",
-  "passport_expiry": "Fecha de vencimiento en formato YYYY-MM-DD",
-  "nationality": "Nacionalidad",
-  "gender": "M o F",
-  "document_type": "passport o id_card"
-}
-
-Si un campo no es visible o no se puede leer, usa null.
-Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
-            file_contents=[image_content]
-        )
-
-        response = await chat.send_message(user_message)
-
-        response_text = response.strip()
-        if response_text.startswith("```"):
-            lines = response_text.split("\n")
-            response_text = "\n".join(lines[1:-1])
-
-        extracted_data = json_module.loads(response_text)
+        extracted_data = await run_ocr_on_image(b64_image)
 
         return {
             "success": True,
@@ -992,6 +973,8 @@ Devuelve SOLO el JSON, sin texto adicional, sin markdown, sin backticks.""",
             "data": {},
             "message": "No se pudo extraer datos del documento. Intenta con una imagen más clara."
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"OCR scan-and-create error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error al escanear documento: {str(e)}")
@@ -1266,10 +1249,18 @@ async def submit_contact_form(data: ContactForm):
 
 app.include_router(api_router)
 
+_cors_origins = os.environ.get('CORS_ORIGINS', '*').split(',')
+if _cors_origins == ['*']:
+    logger.warning(
+        "CORS_ORIGINS no está configurado: aceptando peticiones de CUALQUIER origen. "
+        "Esto es aceptable en desarrollo local, pero antes de producción agrega "
+        "CORS_ORIGINS=https://tu-dominio.com a tu .env"
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_origins=_cors_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
